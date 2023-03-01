@@ -9,6 +9,7 @@ from flask import request
 import arrow  # Replacement for datetime, based on moment.js
 import acp_times  # Brevet time calculations
 import config
+from mypymongo import brevet_insert, brevet_find # import from mypymongo.py 
 
 import logging
 
@@ -17,7 +18,7 @@ import logging
 ###
 app = flask.Flask(__name__, static_folder="static")
 app.debug = True
-CONFIG = config.configuration()
+CONFIG = config.configuration() # use brevet_insert and brevet_find
 
 ###
 # Pages
@@ -43,6 +44,66 @@ def page_not_found(error):
 #   These return JSON, rather than rendering pages.
 #
 ###############
+
+
+@app.route("/_insert_brevet", methods=["POST"])
+def _insert_brevet():
+    """
+    /insert : inserts a brevet into the database
+
+    Accepts POST requests ONLY!
+
+    JSON interface: gets JSON, responds with JSON
+
+    Taken from TodoListApp example
+    """
+# sending brevets as a list
+    # one brevet, one distance, one start time
+    # then a list of checkpoints
+
+    try: # read entire request body as JSON
+        input_json = request.json
+
+        start_time = input_json["start_time"]
+        brevit_dist = input_json["brevit_dist"]
+        checkpoints = input_json["checkpoints"]
+
+        brevets = brevet_insert(start_time, brevit_dist, checkpoints)
+        return flask.jsonify(result={},
+                             message = "Inserted!",
+                             status = 1,
+                             mongo_id = brevets)
+                        
+
+    except:
+        return flask.jsonify(result={}, message="error", status=0, mongo_id="None")
+        
+
+
+@app.route("/_find_brevet")
+def _find_brevet():
+    """
+    /fetch : fetches the latest brevets from the database
+    
+    Accepts GET requests ONLY!
+
+    JSON interface: gets JSON, responds with JSON
+
+    Taken from TodoListApp example
+    """
+    try:
+        brevet_dist, start_time, checkpoints = brevet_find()   
+        return flask.jsonify(
+                result={"brevet": brevet_dist, "start": start_time, "checkpoints": checkpoints}, 
+                status=1,
+                message="Successfully fetched a brevet!")
+    except:
+        return flask.jsonify(
+                result={}, 
+                status=0,
+                message="Something went wrong, couldn't fetch any brevets!")
+
+
 @app.route("/_calc_times")
 def _calc_times():
     """
@@ -59,10 +120,7 @@ def _calc_times():
     app.logger.debug("start_time={}".format(start_time))
     app.logger.debug("km={}".format(km))
     app.logger.debug("request.args: {}".format(request.args))
-    # FIXME!
-    # Right now, only the current time is passed as the start time
-    # and control distance is fixed to 200
-    # You should get these from the webpage!
+    
     open_time = acp_times.open_time(km, brevit_dist, start_time).format('YYYY-MM-DDTHH:mm')
     close_time = acp_times.close_time(km, brevit_dist, start_time).format('YYYY-MM-DDTHH:mm')
     result = {"open": open_time, "close": close_time}
