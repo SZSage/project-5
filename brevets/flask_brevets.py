@@ -12,10 +12,13 @@ import config
 from mypymongo import brevet_insert, brevet_find # import from mypymongo.py 
 
 import logging
+import traceback
 
 ###
 # Globals
 ###
+
+logging.basicConfig(level=logging.DEBUG)
 app = flask.Flask(__name__, static_folder="static")
 app.debug = True
 CONFIG = config.configuration() # use brevet_insert and brevet_find
@@ -57,27 +60,23 @@ def _insert_brevet():
 
     Taken from TodoListApp example
     """
-# sending brevets as a list
-    # one brevet, one distance, one start time
-    # then a list of checkpoints
-
+    
+    app.logger.debug(f'Request JSON: {request.get_json()}') # 
     try: # read entire request body as JSON
         input_json = request.json
-
-        start_time = input_json["start_time"]
-        brevit_dist = input_json["brevit_dist"]
+        brevet_dist = input_json["brevet_dist"]
+        begin_time = input_json["begin_date"]
         checkpoints = input_json["checkpoints"]
 
-        brevets = brevet_insert(start_time, brevit_dist, checkpoints)
+        brevets = brevet_insert(brevet_dist, begin_time, checkpoints)
         return flask.jsonify(result={},
                              message = "Inserted!",
                              status = 1,
                              mongo_id = brevets)
                         
-
-    except:
-        return flask.jsonify(result={}, message="error", status=0, mongo_id="None")
-        
+    except Exception as e:
+        traceback.print_exc()
+        return flask.jsonify(result={}, message=e, status=0, mongo_id="None")
 
 
 @app.route("/_find_brevet")
@@ -92,9 +91,9 @@ def _find_brevet():
     Taken from TodoListApp example
     """
     try:
-        brevet_dist, start_time, checkpoints = brevet_find()   
+        brevet_dist, begin_time, checkpoints = brevet_find()   
         return flask.jsonify(
-                result={"brevet": brevet_dist, "start": start_time, "checkpoints": checkpoints}, 
+                result={"brevet": brevet_dist, "start": begin_time, "checkpoints": checkpoints}, 
                 status=1,
                 message="Successfully fetched a brevet!")
     except:
